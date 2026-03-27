@@ -1,8 +1,23 @@
-import pandas as pd
 
-df = pd.read_csv("D:/Spam-detection-using-deep-learning/data/raw/spam.csv", encoding='latin-1')
-import pandas as pd
+# 1. IMPORT LIBRARIES
 
+import pandas as pd
+import re
+import nltk
+import os
+import pickle
+
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+
+# 2. LOAD DATA
 df = pd.read_csv("D:/Spam-detection-using-deep-learning/data/raw/spam.csv", encoding='latin-1')
 
 # Rename columns
@@ -11,23 +26,13 @@ df = df.rename(columns={
     'Message': 'v2'
 })
 
-
 df = df[['v1', 'v2']]
 df.columns = ['label', 'message']
 
-print(df.head())
+print("Data Loaded:\n", df.head())
 
-spam_categories = [
-    "promotion",     # ads, offers, discounts
-    "financial",     # bank, loan, money
-    "phishing",      # fake links, login traps
-    "lottery",       # win prize, lucky draw
-    "job_spam",      # job offers, work from home
-    "otp_fraud",     # OTP/password scams
-    "adult",         # inappropriate content
-    "general_spam",  # spam but no clear type
-    "ham"            # normal message
-]
+# 3. SPAM TYPE CLASSIFICATION
+
 def classify_spam_type(text, label):
     text = text.lower()
     
@@ -54,19 +59,25 @@ def classify_spam_type(text, label):
 
 df['spam_type'] = df.apply(lambda x: classify_spam_type(x['message'], x['label']), axis=1)
 
+print("\nSpam Type Added:\n", df[['label', 'spam_type']].head())
 
-#print(df.head(15))
 
-import re
-import nltk
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
+# 4. TEXT PREPROCESSING
+# Download only if not present
+try:
+    stopwords.words('english')
+except:
+    nltk.download('stopwords')
 
-nltk.download('stopwords')
-nltk.download('wordnet')
+try:
+    nltk.data.find('corpora/wordnet')
+except:
+    nltk.download('wordnet')
+
 
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
+
 
 def clean_text(text):
     text = text.lower()
@@ -81,22 +92,17 @@ def clean_text(text):
 
 df['cleaned_message'] = df['message'].apply(clean_text)
 
-print(df[['message', 'cleaned_message']].head())
+print("\nCleaned Text:\n", df[['message', 'cleaned_message']].head())
 
-
-
-from sklearn.preprocessing import LabelEncoder
+# 5. ENCODE LABELS
 
 le = LabelEncoder()
 df['spam_type_encoded'] = le.fit_transform(df['spam_type'])
 
+print("\nEncoded Classes:")
 print(dict(zip(le.classes_, le.transform(le.classes_))))
 
-
-
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-
+# 6. TOKENIZATION + PADDING
 tokenizer = Tokenizer(num_words=5000)
 tokenizer.fit_on_texts(df['cleaned_message'])
 
@@ -104,32 +110,39 @@ X = tokenizer.texts_to_sequences(df['cleaned_message'])
 X = pad_sequences(X, maxlen=100)
 
 
-
-# Binary (spam / ham)
+# Binary
 y_binary = df['label'].map({'ham': 0, 'spam': 1})
 
-# Multi-class (spam categories)
+# Multi-class (recommended)
 y_multi = df['spam_type_encoded']
 
 
-from sklearn.model_selection import train_test_split
 
+# 8. TRAIN TEST SPLIT
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y_binary, test_size=0.2, random_state=42
+    X, y_multi, test_size=0.2, random_state=42
 )
 
+print("\nTrain Test Split Done")
+print("X_train shape:", X_train.shape)
 
 
+# 9. SAVE FILES
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-import pickle
-import os
+model_path = os.path.join(BASE_DIR, "..", "models")
+data_path = os.path.join(BASE_DIR, "..", "data")
 
-os.makedirs("../models", exist_ok=True)
+os.makedirs(model_path, exist_ok=True)
+os.makedirs(data_path, exist_ok=True)
 
 # Save tokenizer
-pickle.dump(tokenizer, open("../models/tokenizer.pkl", "wb"))
+pickle.dump(tokenizer, open(os.path.join(model_path, "tokenizer.pkl"), "wb"))
 
-# Save processed data
-df.to_csv("../data/processed_data.csv", index=False)
+# Save label encoder
+pickle.dump(le, open(os.path.join(model_path, "label_encoder.pkl"), "wb"))
 
-print("Preprocessing completed & data saved ")
+# Save processed dataset
+df.to_csv(os.path.join(data_path, "processed_data.csv"), index=False)
+
+print("\n Preprocessing completed & data saved successfully!")
