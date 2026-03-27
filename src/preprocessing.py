@@ -132,4 +132,4 @@ pickle.dump(tokenizer, open("../models/tokenizer.pkl", "wb"))
 # Save processed data
 df.to_csv("../data/processed_data.csv", index=False)
 
-print("Preprocessing completed & data saved ✅")
+print("Preprocessing completed & data saved ")
