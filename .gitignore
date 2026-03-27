@@ -1,5 +1,7 @@
 # Virtual Environment (IMPORTANT)
 spam_env/
+spam_env_tf/
+venv/
 
 # Python cache
 __pycache__/

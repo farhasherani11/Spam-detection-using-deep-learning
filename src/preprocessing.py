@@ -55,4 +55,81 @@ def classify_spam_type(text, label):
 df['spam_type'] = df.apply(lambda x: classify_spam_type(x['message'], x['label']), axis=1)
 
 
-print(df.head(15))
+#print(df.head(15))
+
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+nltk.download('stopwords')
+nltk.download('wordnet')
+
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r'[^a-zA-Z]', ' ', text)
+    
+    words = text.split()
+    words = [w for w in words if w not in stop_words]
+    words = [lemmatizer.lemmatize(w) for w in words]
+    
+    return " ".join(words)
+
+
+df['cleaned_message'] = df['message'].apply(clean_text)
+
+print(df[['message', 'cleaned_message']].head())
+
+
+
+from sklearn.preprocessing import LabelEncoder
+
+le = LabelEncoder()
+df['spam_type_encoded'] = le.fit_transform(df['spam_type'])
+
+print(dict(zip(le.classes_, le.transform(le.classes_))))
+
+
+
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+tokenizer = Tokenizer(num_words=5000)
+tokenizer.fit_on_texts(df['cleaned_message'])
+
+X = tokenizer.texts_to_sequences(df['cleaned_message'])
+X = pad_sequences(X, maxlen=100)
+
+
+
+# Binary (spam / ham)
+y_binary = df['label'].map({'ham': 0, 'spam': 1})
+
+# Multi-class (spam categories)
+y_multi = df['spam_type_encoded']
+
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_binary, test_size=0.2, random_state=42
+)
+
+
+
+
+import pickle
+import os
+
+os.makedirs("../models", exist_ok=True)
+
+# Save tokenizer
+pickle.dump(tokenizer, open("../models/tokenizer.pkl", "wb"))
+
+# Save processed data
+df.to_csv("../data/processed_data.csv", index=False)
+
+print("Preprocessing completed & data saved ✅")
