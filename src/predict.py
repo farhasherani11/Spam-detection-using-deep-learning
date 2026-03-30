@@ -10,26 +10,44 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import nltk
 
-# Download NLTK (first time only)
+# =========================
+# 📥 DOWNLOAD NLTK
+# =========================
 nltk.download('stopwords')
 nltk.download('wordnet')
 
-# PATH SETUP
+# =========================
+# 📂 PATH SETUP
+# =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(BASE_DIR, "..", "models")
 
-# LOAD MODEL + TOKENIZER
-model = load_model(os.path.join(model_path, "lstm_model.h5"))
+# =========================
+# 🤖 LOAD MODEL
+# =========================
+print("🤖 Loading model...")
+
+model = load_model(
+    os.path.join(model_path, "lstm_model.h5"),
+    compile=False
+)
+
 tokenizer = pickle.load(open(os.path.join(model_path, "tokenizer.pkl"), "rb"))
 label_encoder = pickle.load(open(os.path.join(model_path, "label_encoder.pkl"), "rb"))
 
-# TEXT CLEANING
+print("✅ Model Loaded!\n")
+
+# =========================
+# 🧹 TEXT CLEANING
+# =========================
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
 
 def clean_text(text):
     text = text.lower()
-    text = re.sub(r'[^a-zA-Z]', ' ', text)
+
+    # 🔥 KEEP numbers + money symbols
+    text = re.sub(r'[^a-zA-Z0-9₹$]', ' ', text)
 
     words = text.split()
     words = [w for w in words if w not in stop_words]
@@ -37,34 +55,65 @@ def clean_text(text):
 
     return " ".join(words)
 
-# PREDICT FUNCTION
+# =========================
+# 🔍 PREDICT FUNCTION
+# =========================
 def predict_message(message):
     cleaned = clean_text(message)
 
     seq = tokenizer.texts_to_sequences([cleaned])
     padded = pad_sequences(seq, maxlen=100)
 
-    pred = model.predict(padded)
-    label = np.argmax(pred)
+    pred = model.predict(padded, verbose=0)[0]
 
-    result = label_encoder.inverse_transform([label])[0]
-    confidence = np.max(pred)
+    label_index = int(np.argmax(pred))
+    result = label_encoder.inverse_transform([label_index])[0]
+    confidence = float(np.max(pred))
 
     return result, confidence
 
-# USER INPUT LOOP
+# =========================
+# 🚨 SPAM KEYWORDS (BOOST)
+# =========================
+spam_keywords = [
+    "win", "lottery", "prize", "offer", "free",
+    "loan", "click", "verify", "otp", "earn",
+    "money", "urgent", "account", "bank",
+    "discount", "buy", "winner", "cash"
+]
+
+# =========================
+# 🖥️ CLI LOOP
+# =========================
 print("📩 Spam Detection CLI")
 print("Type 'exit' to quit\n")
 
 while True:
-    msg = input("Enter message: ")
+    msg = input("Enter message: ").strip()
 
     if msg.lower() == "exit":
+        print("👋 Exiting...")
         break
+
+    if msg == "":
+        print("⚠️ Please enter a valid message\n")
+        continue
 
     result, confidence = predict_message(msg)
 
+    # 🔥 KEYWORD CHECK
+    keyword_flag = any(word in msg.lower() for word in spam_keywords)
+
+    # =========================
+    # 🎯 FINAL DECISION LOGIC
+    # =========================
     if result == "ham":
-        print(f"✅ Not Spam (Ham) | Confidence: {confidence:.2f}\n")
+        if confidence < 0.6 or keyword_flag:
+            print("⚠️ Suspicious Message (Possible Spam)")
+        else:
+            print("✅ Not Spam (Ham)")
+
     else:
-        print(f"🚨 Spam Detected: {result} | Confidence: {confidence:.2f}\n")
+        print(f"🚨 Spam Detected: {result}")
+
+    print(f"📊 Confidence: {confidence:.2f}\n")

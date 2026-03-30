@@ -29,7 +29,7 @@ print(dict(zip(le.classes_, le.transform(le.classes_))))
 df['cleaned_message'] = df['cleaned_message'].fillna("")
 df['cleaned_message'] = df['cleaned_message'].astype(str)
 
-tokenizer = Tokenizer(num_words=5000)
+tokenizer = Tokenizer(num_words=8000)
 tokenizer.fit_on_texts(df['cleaned_message'])
 
 X = tokenizer.texts_to_sequences(df['cleaned_message'])
