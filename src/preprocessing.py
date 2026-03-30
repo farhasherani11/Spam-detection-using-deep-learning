@@ -11,8 +11,10 @@ from nltk.stem import WordNetLemmatizer
 
 
 # 2. LOAD DATA
-df = pd.read_csv("D:/Spam-detection-using-deep-learning/data/raw/spam.csv", encoding='latin-1')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+data_path = os.path.join(BASE_DIR, "..", "data", "raw", "spam.csv")
 
+df = pd.read_csv(data_path, encoding='latin-1')
 # Rename columns
 df = df.rename(columns={
     'Category': 'label',
